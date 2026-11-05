@@ -1,0 +1,3 @@
+## System Architecture
+
+![SubTrack Architecture Diagram](docs/architecture-diagram.png)
