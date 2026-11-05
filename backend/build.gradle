@@ -1,0 +1,40 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.3.4'
+    id 'io.spring.dependency-management' version '1.1.6'
+}
+
+group = 'com.subtrack'
+version = '1.0-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Web REST API
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // JPA & Hibernate
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // Драйвер за PostgreSQL
+    runtimeOnly 'org.postgresql:postgresql'
+
+    // Lombok (за чист код без ръчни гетъри и сетъри)
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // Тестове
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+test {
+    useJUnitPlatform()
+}

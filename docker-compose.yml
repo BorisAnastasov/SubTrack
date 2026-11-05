@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: subtrack-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: subtrack_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: shtri66.
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
