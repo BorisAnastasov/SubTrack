@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.3.4'
     id 'io.spring.dependency-management' version '1.1.6'
+    id 'checkstyle'
 }
 
 group = 'com.subtrack'
@@ -13,25 +14,41 @@ java {
     }
 }
 
+checkstyle {
+    toolVersion = '10.18.2'
+    configFile = file("${rootDir}/config/checkstyle/checkstyle.xml")
+    ignoreFailures = false
+    maxWarnings = 0
+}
+
+tasks.withType(Checkstyle).configureEach {
+    reports {
+        xml.required = false
+        html.required = true
+    }
+}
+
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    // Web REST API
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
-    // JPA & Hibernate
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-
-    // Драйвер за PostgreSQL
     runtimeOnly 'org.postgresql:postgresql'
 
-    // Lombok (за чист код без ръчни гетъри и сетъри)
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
-    // Тестове
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
