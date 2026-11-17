@@ -43,6 +43,27 @@ public class SendGridEmailServiceImpl implements EmailService {
         sendHtmlEmail(toEmail, "Verify your SubTrack account", text, html);
     }
 
+    @Override
+    public void sendPasswordResetEmail(String toEmail, String token) {
+        if (!StringUtils.hasText(fromAddress)) {
+            throw new IllegalStateException("MAIL_FROM must be set to a verified sender email address");
+        }
+        String resetUrl = frontendUrl.replaceAll("/+$", "") + "/reset-password?token=" + token;
+
+        String text = "Hello,\n\nUse the following link to reset your SubTrack password:\n"
+                + resetUrl + "\n\nThis link expires in 1 hour.";
+        String html = emailTemplate(
+                "Reset your SubTrack password",
+                "Reset your password",
+                "We received a request to reset the password for your SubTrack account.",
+                "Reset password",
+                resetUrl,
+                "This link expires in 1 hour. If you did not request this, you can ignore this email."
+        );
+
+        sendHtmlEmail(toEmail, "Reset your SubTrack password", text, html);
+    }
+
     private void sendHtmlEmail(String toEmail, String subject, String text, String html) {
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();

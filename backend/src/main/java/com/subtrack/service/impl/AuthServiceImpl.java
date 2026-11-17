@@ -6,12 +6,16 @@ import com.subtrack.dto.request.LoginRequest;
 import com.subtrack.dto.request.RefreshTokenRequest;
 import com.subtrack.dto.request.RegisterRequest;
 import com.subtrack.dto.request.ResendVerificationRequest;
+import com.subtrack.dto.request.ForgotPasswordRequest;
+import com.subtrack.dto.request.ResetPasswordRequest;
 import com.subtrack.dto.response.AuthResponse;
 import com.subtrack.model.EmailVerificationToken;
+import com.subtrack.model.PasswordResetToken;
 import com.subtrack.model.RefreshToken;
 import com.subtrack.model.Role;
 import com.subtrack.model.User;
 import com.subtrack.repository.EmailVerificationTokenRepository;
+import com.subtrack.repository.PasswordResetTokenRepository;
 import com.subtrack.repository.RoleRepository;
 import com.subtrack.repository.UserRepository;
 import com.subtrack.security.CustomUserDetails;
@@ -44,6 +48,7 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final EmailVerificationTokenRepository verificationTokenRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final RoleRepository roleRepository;
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
@@ -105,6 +110,46 @@ public class AuthServiceImpl implements AuthService {
                 });
 
         sendVerificationEmail(user);
+    }
+
+    @Override
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        userRepository.findByEmail(request.email()).ifPresent(user -> {
+            passwordResetTokenRepository.findByUserId(user.getId())
+                    .ifPresent(existingToken -> {
+                        passwordResetTokenRepository.delete(existingToken);
+                        passwordResetTokenRepository.flush();
+                    });
+
+            byte[] randomToken = new byte[32];
+            new SecureRandom().nextBytes(randomToken);
+            String token = Base64.getUrlEncoder().withoutPadding().encodeToString(randomToken);
+
+            PasswordResetToken resetToken = new PasswordResetToken();
+            resetToken.setTokenHash(hashToken(token));
+            resetToken.setUser(user);
+            resetToken.setExpiresAt(LocalDateTime.now().plusHours(1));
+            passwordResetTokenRepository.save(resetToken);
+
+            emailService.sendPasswordResetEmail(user.getEmail(), token);
+        });
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByTokenHash(hashToken(request.token()))
+                .orElseThrow(() -> new IllegalArgumentException("Password reset link is invalid or already used"));
+        if (resetToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Password reset link has expired");
+        }
+
+        User user = resetToken.getUser();
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        userRepository.save(user);
+        passwordResetTokenRepository.delete(resetToken);
+        refreshTokenService.deleteByUserId(user.getId());
     }
 
     private void sendVerificationEmail(User user) {

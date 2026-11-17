@@ -107,6 +107,7 @@ function AuthForm({ mode, onAuthenticated, notice }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasLoginFailed, setHasLoginFailed] = useState(false);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -130,6 +131,9 @@ function AuthForm({ mode, onAuthenticated, notice }) {
         onAuthenticated(auth);
       }
     } catch (requestError) {
+      if (!isRegister) {
+        setHasLoginFailed(true);
+      }
       setError(requestError.message || "We couldn’t complete your request. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -202,12 +206,159 @@ function AuthForm({ mode, onAuthenticated, notice }) {
         </button>
       </form>
 
+      {!isRegister && hasLoginFailed && (
+        <div className="form-switch form-forgot">
+          <Link to="/forgot-password">Forgot your password?</Link>
+        </div>
+      )}
+
       <div className="form-switch">
         {isRegister ? "Already have an account?" : "New to SubTrack?"}{" "}
         <Link to={isRegister ? "/login" : "/register"}>
           {isRegister ? "Sign in" : "Create an account"}
         </Link>
       </div>
+    </AuthLayout>
+  );
+}
+
+function ForgotPasswordPage() {
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    setIsSubmitting(true);
+    try {
+      const response = await postAuth("forgot-password", { email });
+      setMessage(typeof response === "string"
+        ? response
+        : "If an account exists for this email, a password reset link will be sent.");
+      setEmail("");
+    } catch (requestError) {
+      setError(requestError.message || "We couldn’t send a reset link. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <AuthLayout mode="login">
+      <div className="form-heading">
+        <span className="form-kicker">PASSWORD RESET</span>
+        <h2>Forgot your password?</h2>
+        <p>Enter your email and we’ll send you a secure reset link.</p>
+      </div>
+      {message && <div className="form-notice" role="status">{message}</div>}
+      <form className="auth-form" onSubmit={handleSubmit}>
+        <label className="field">
+          <span>Email address</span>
+          <input
+            type="email"
+            name="email"
+            placeholder="you@example.com"
+            autoComplete="email"
+            maxLength={255}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
+        </label>
+        {error && <div className="form-error" role="alert">{error}</div>}
+        <button className="primary-button" type="submit" disabled={isSubmitting}>
+          <span>{isSubmitting ? "Please wait…" : "Send reset link"}</span>
+        </button>
+      </form>
+      <div className="form-switch"><Link to="/login">Back to sign in</Link></div>
+    </AuthLayout>
+  );
+}
+
+function ResetPasswordPage() {
+  const [searchParams] = useSearchParams();
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    if (password !== confirmPassword) {
+      setError("Those passwords don’t match. Please try again.");
+      return;
+    }
+
+    const token = searchParams.get("token");
+    if (!token) {
+      setError("This reset link is missing its token.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await postAuth("reset-password", { token, password });
+      setMessage(typeof response === "string"
+        ? response
+        : "Password reset successfully. You can now sign in.");
+      setPassword("");
+      setConfirmPassword("");
+    } catch (requestError) {
+      setError(requestError.message || "We couldn’t reset your password. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <AuthLayout mode="login">
+      <div className="form-heading">
+        <span className="form-kicker">PASSWORD RESET</span>
+        <h2>Choose a new password</h2>
+        <p>Enter and confirm your new password.</p>
+      </div>
+      {message && <div className="form-notice" role="status">{message}</div>}
+      <form className="auth-form" onSubmit={handleSubmit}>
+        <label className="field">
+          <span>New password</span>
+          <input
+            type="password"
+            name="password"
+            placeholder="At least 6 characters"
+            autoComplete="new-password"
+            minLength={6}
+            maxLength={100}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+          />
+        </label>
+        <label className="field">
+          <span>Confirm new password</span>
+          <input
+            type="password"
+            name="confirmPassword"
+            placeholder="Enter your password again"
+            autoComplete="new-password"
+            minLength={6}
+            maxLength={100}
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            required
+          />
+        </label>
+        {error && <div className="form-error" role="alert">{error}</div>}
+        <button className="primary-button" type="submit" disabled={isSubmitting}>
+          <span>{isSubmitting ? "Please wait…" : "Reset password"}</span>
+        </button>
+      </form>
+      <div className="form-switch"><Link to="/login">Back to sign in</Link></div>
     </AuthLayout>
   );
 }
@@ -336,6 +487,8 @@ export default function App() {
       <Route path="/" element={<Navigate to={auth ? "/account" : "/login"} replace />} />
       <Route path="/login" element={auth ? <Navigate to="/account" replace /> : <AuthForm mode="login" onAuthenticated={handleAuthenticated} notice={location.state?.notice} />} />
       <Route path="/register" element={auth ? <Navigate to="/account" replace /> : <AuthForm mode="register" onAuthenticated={handleAuthenticated} />} />
+      <Route path="/forgot-password" element={auth ? <Navigate to="/account" replace /> : <ForgotPasswordPage />} />
+      <Route path="/reset-password" element={auth ? <Navigate to="/account" replace /> : <ResetPasswordPage />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route
         path="/account"

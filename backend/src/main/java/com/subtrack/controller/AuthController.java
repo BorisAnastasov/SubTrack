@@ -2,10 +2,12 @@ package com.subtrack.controller;
 
 import com.subtrack.constant.MessageConstants;
 import com.subtrack.dto.request.EmailVerificationRequest;
+import com.subtrack.dto.request.ForgotPasswordRequest;
 import com.subtrack.dto.request.LoginRequest;
 import com.subtrack.dto.request.RefreshTokenRequest;
 import com.subtrack.dto.request.RegisterRequest;
 import com.subtrack.dto.request.ResendVerificationRequest;
+import com.subtrack.dto.request.ResetPasswordRequest;
 import com.subtrack.dto.response.AuthResponse;
 import com.subtrack.security.CustomUserDetails;
 import com.subtrack.service.AuthService;
@@ -47,6 +49,19 @@ public class AuthController {
         authService.resendVerificationEmail(request);
         return ResponseEntity.accepted()
                 .body("If this address needs verification, a new link will be sent.");
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        return ResponseEntity.accepted()
+                .body("If an account exists for this email, a password reset link will be sent.");
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok("Password reset successfully. You can now sign in.");
     }
 
     @PostMapping("/login")
