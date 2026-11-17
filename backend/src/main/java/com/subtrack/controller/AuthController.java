@@ -1,9 +1,11 @@
 package com.subtrack.controller;
 
 import com.subtrack.constant.MessageConstants;
+import com.subtrack.dto.request.EmailVerificationRequest;
 import com.subtrack.dto.request.LoginRequest;
 import com.subtrack.dto.request.RefreshTokenRequest;
 import com.subtrack.dto.request.RegisterRequest;
+import com.subtrack.dto.request.ResendVerificationRequest;
 import com.subtrack.dto.response.AuthResponse;
 import com.subtrack.security.CustomUserDetails;
 import com.subtrack.service.AuthService;
@@ -27,8 +29,24 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
+    public ResponseEntity<String> register(@Valid @RequestBody RegisterRequest request) {
+        authService.register(request);
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body("Account created. Check your email for a link to verify your account.");
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<String> verifyEmail(@Valid @RequestBody EmailVerificationRequest request) {
+        authService.verifyEmail(request.token());
+        return ResponseEntity.ok("Email verified. You can now sign in.");
+    }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<String> resendVerificationEmail(
+            @Valid @RequestBody ResendVerificationRequest request) {
+        authService.resendVerificationEmail(request);
+        return ResponseEntity.accepted()
+                .body("If this address needs verification, a new link will be sent.");
     }
 
     @PostMapping("/login")

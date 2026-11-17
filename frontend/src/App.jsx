@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8081";
 const AUTH_STORAGE_KEY = "subtrack-auth";
@@ -105,11 +105,13 @@ function AuthForm({ mode, onAuthenticated, notice }) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
+    setSuccess("");
 
     if (isRegister && password !== confirmPassword) {
       setError("Those passwords don’t match. Please try again.");
@@ -118,8 +120,15 @@ function AuthForm({ mode, onAuthenticated, notice }) {
 
     setIsSubmitting(true);
     try {
-      const auth = await postAuth(isRegister ? "register" : "login", { email, password });
-      onAuthenticated(auth);
+      if (isRegister) {
+        const message = await postAuth("register", { email, password });
+        setSuccess(typeof message === "string" ? message : "Check your email for a link to verify your account.");
+        setPassword("");
+        setConfirmPassword("");
+      } else {
+        const auth = await postAuth("login", { email, password });
+        onAuthenticated(auth);
+      }
     } catch (requestError) {
       setError(requestError.message || "We couldn’t complete your request. Please try again.");
     } finally {
@@ -136,6 +145,7 @@ function AuthForm({ mode, onAuthenticated, notice }) {
       </div>
 
       {notice && <div className="form-notice" role="status">{notice}</div>}
+      {success && <div className="form-notice" role="status">{success}</div>}
 
       <form className="auth-form" onSubmit={handleSubmit}>
         <label className="field">
@@ -202,6 +212,80 @@ function AuthForm({ mode, onAuthenticated, notice }) {
   );
 }
 
+function VerifyEmailPage() {
+  const [searchParams] = useSearchParams();
+  const [status, setStatus] = useState({ loading: true, success: false, message: "" });
+  const [email, setEmail] = useState("");
+  const [resending, setResending] = useState(false);
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+
+    const token = searchParams.get("token");
+    if (!token) {
+      setStatus({ loading: false, success: false, message: "This verification link is missing its token." });
+      return;
+    }
+
+    postAuth("verify-email", { token })
+      .then((message) => setStatus({
+        loading: false,
+        success: true,
+        message: typeof message === "string" ? message : "Your email is verified. You can now sign in.",
+      }))
+      .catch((requestError) => setStatus({
+        loading: false,
+        success: false,
+        message: requestError.message || "We couldn't verify your email. Please request a new link.",
+      }));
+  }, [searchParams]);
+
+  return (
+    <AuthLayout mode="login">
+      <div className="form-heading">
+        <span className="form-kicker">EMAIL VERIFICATION</span>
+        <h2>{status.loading ? "Verifying your email…" : "Verification update"}</h2>
+        {!status.loading && <p role="status">{status.message}</p>}
+      </div>
+      {!status.loading && !status.success && (
+        <form
+          className="auth-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setResending(true);
+            try {
+              const message = await postAuth("resend-verification", { email });
+              setStatus({ loading: false, success: false, message });
+            } catch (requestError) {
+              setStatus({ loading: false, success: false, message: requestError.message });
+            } finally {
+              setResending(false);
+            }
+          }}
+        >
+          <label className="field">
+            <span>Email address</span>
+            <input
+              type="email"
+              name="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
+          </label>
+          <button className="primary-button" type="submit" disabled={resending}>
+            <span>{resending ? "Please wait…" : "Send a new verification link"}</span>
+          </button>
+        </form>
+      )}
+      {!status.loading && <div className="form-switch"><Link to="/login">Go to sign in</Link></div>}
+    </AuthLayout>
+  );
+}
+
 function AccountPage({ auth, onLogout }) {
   return (
     <main className="account-page">
@@ -252,6 +336,7 @@ export default function App() {
       <Route path="/" element={<Navigate to={auth ? "/account" : "/login"} replace />} />
       <Route path="/login" element={auth ? <Navigate to="/account" replace /> : <AuthForm mode="login" onAuthenticated={handleAuthenticated} notice={location.state?.notice} />} />
       <Route path="/register" element={auth ? <Navigate to="/account" replace /> : <AuthForm mode="register" onAuthenticated={handleAuthenticated} />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route
         path="/account"
         element={auth ? <AccountPage auth={auth} onLogout={handleLogout} /> : <Navigate to="/login" replace />}

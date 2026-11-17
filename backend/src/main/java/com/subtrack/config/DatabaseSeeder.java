@@ -63,11 +63,19 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     private User seedUser(String email, String rawPassword, boolean isPremium, Set<Role> roles) {
         return userRepository.findByEmail(email)
+                .map(user -> {
+                    if (!user.isVerified()) {
+                        user.setVerified(true);
+                        return userRepository.save(user);
+                    }
+                    return user;
+                })
                 .orElseGet(() -> {
                     User user = new User();
                     user.setEmail(email);
                     user.setPasswordHash(passwordEncoder.encode(rawPassword));
                     user.setPremium(isPremium);
+                    user.setVerified(true);
                     user.setRoles(new HashSet<>(roles));
                     log.info("Seeding user: {}", email);
                     return userRepository.save(user);

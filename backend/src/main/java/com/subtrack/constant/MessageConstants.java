@@ -15,6 +15,9 @@ public final class MessageConstants {
     public static final String VALIDATION_PRICE_POSITIVE = "Price must be greater than zero";
 
     public static final String ERROR_EMAIL_ALREADY_TAKEN = "Email is already taken!";
+    public static final String ERROR_EMAIL_NOT_VERIFIED = "Verify your email before signing in";
+    public static final String ERROR_VERIFICATION_TOKEN_INVALID = "Verification link is invalid or already used";
+    public static final String ERROR_VERIFICATION_TOKEN_EXPIRED = "Verification link has expired";
     public static final String ERROR_INVALID_CREDENTIALS = "Invalid email or password";
     public static final String ERROR_REFRESH_TOKEN_EXPIRED = "Refresh token was expired. Please make a new signin request";
     public static final String ERROR_REFRESH_TOKEN_NOT_FOUND = "Refresh token is not in database!";

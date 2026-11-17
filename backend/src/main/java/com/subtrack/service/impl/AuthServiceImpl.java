@@ -5,15 +5,19 @@ import com.subtrack.constant.RoleConstants;
 import com.subtrack.dto.request.LoginRequest;
 import com.subtrack.dto.request.RefreshTokenRequest;
 import com.subtrack.dto.request.RegisterRequest;
+import com.subtrack.dto.request.ResendVerificationRequest;
 import com.subtrack.dto.response.AuthResponse;
+import com.subtrack.model.EmailVerificationToken;
 import com.subtrack.model.RefreshToken;
 import com.subtrack.model.Role;
 import com.subtrack.model.User;
+import com.subtrack.repository.EmailVerificationTokenRepository;
 import com.subtrack.repository.RoleRepository;
 import com.subtrack.repository.UserRepository;
 import com.subtrack.security.CustomUserDetails;
 import com.subtrack.security.JwtService;
 import com.subtrack.service.AuthService;
+import com.subtrack.service.EmailService;
 import com.subtrack.service.RefreshTokenService;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +27,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.HexFormat;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -32,7 +43,9 @@ import java.util.Set;
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
+    private final EmailVerificationTokenRepository verificationTokenRepository;
     private final RoleRepository roleRepository;
+    private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
@@ -40,7 +53,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
+    public void register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
             throw new IllegalArgumentException(MessageConstants.ERROR_EMAIL_ALREADY_TAKEN);
         }
@@ -53,10 +66,69 @@ public class AuthServiceImpl implements AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRoles(new HashSet<>(Set.of(userRole)));
         user.setPremium(false);
+        user.setVerified(false);
 
         User savedUser = userRepository.save(user);
 
-        return getAuthResponse(savedUser);
+        sendVerificationEmail(savedUser);
+    }
+
+    @Override
+    @Transactional
+    public void verifyEmail(String token) {
+        EmailVerificationToken verificationToken = verificationTokenRepository.findByTokenHash(hashToken(token))
+                .orElseThrow(() -> new IllegalArgumentException(MessageConstants.ERROR_VERIFICATION_TOKEN_INVALID));
+        if (verificationToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException(MessageConstants.ERROR_VERIFICATION_TOKEN_EXPIRED);
+        }
+
+        User user = verificationToken.getUser();
+        user.setVerified(true);
+        userRepository.save(user);
+        verificationTokenRepository.delete(verificationToken);
+    }
+
+    @Override
+    @Transactional
+    public void resendVerificationEmail(ResendVerificationRequest request) {
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + request.email()));
+
+        if (user.isVerified()) {
+            throw new IllegalStateException("User is already verified.");
+        }
+
+        verificationTokenRepository.findByUserId(user.getId())
+                .ifPresent(existingToken -> {
+                    verificationTokenRepository.delete(existingToken);
+                    verificationTokenRepository.flush();
+                });
+
+        sendVerificationEmail(user);
+    }
+
+    private void sendVerificationEmail(User user) {
+        byte[] randomToken = new byte[32];
+        new SecureRandom().nextBytes(randomToken);
+        String token = Base64.getUrlEncoder().withoutPadding().encodeToString(randomToken);
+
+        EmailVerificationToken verificationToken = new EmailVerificationToken();
+        verificationToken.setTokenHash(hashToken(token));
+        verificationToken.setUser(user);
+        verificationToken.setExpiresAt(LocalDateTime.now().plusHours(24));
+        verificationTokenRepository.save(verificationToken);
+
+        emailService.sendVerificationEmail(user.getEmail(), token);
+    }
+
+    private String hashToken(String token) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(token.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is not available", exception);
+        }
     }
 
     @NonNull
@@ -73,14 +145,21 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse login(LoginRequest request) {
+        User existingUser = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new IllegalArgumentException(MessageConstants.ERROR_INVALID_CREDENTIALS));
+        if (!existingUser.isVerified()) {
+            if (verificationTokenRepository.existsByUserId(existingUser.getId())) {
+                throw new IllegalArgumentException(MessageConstants.ERROR_EMAIL_NOT_VERIFIED);
+            }
+            existingUser.setVerified(true);
+            userRepository.save(existingUser);
+        }
+
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.email(), request.password())
         );
 
-        User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new IllegalArgumentException(MessageConstants.ERROR_INVALID_CREDENTIALS));
-
-        return getAuthResponse(user);
+        return getAuthResponse(existingUser);
     }
 
     @Override
