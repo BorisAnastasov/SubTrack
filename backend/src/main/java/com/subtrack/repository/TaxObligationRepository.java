@@ -9,5 +9,4 @@ import java.util.List;
 @Repository
 public interface TaxObligationRepository extends JpaRepository<TaxObligation, Long> {
     List<TaxObligation> findByUserId(Long userId);
-
 }

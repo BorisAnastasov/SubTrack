@@ -104,7 +104,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                     new BigDecimal("19.99"),
                     "BGN",
                     BillingCycle.MONTHLY,
-                    LocalDate.now().plusDays(12),
+                    LocalDate.now().plusDays(3),
                     "Credit Card",
                     SubscriptionStatus.ACTIVE,
                     "Family account"
@@ -118,7 +118,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                     new BigDecimal("29.00"),
                     "EUR",
                     BillingCycle.MONTHLY,
-                    LocalDate.now().plusDays(5),
+                    LocalDate.now().plusDays(11),
                     "Debit Card",
                     SubscriptionStatus.ACTIVE,
                     "Developer pack"

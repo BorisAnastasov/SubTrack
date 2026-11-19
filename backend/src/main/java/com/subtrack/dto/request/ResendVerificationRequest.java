@@ -9,7 +9,7 @@ import jakarta.validation.constraints.Size;
 public record ResendVerificationRequest(
         @NotBlank(message = MessageConstants.VALIDATION_EMAIL_REQUIRED)
         @Email(message = MessageConstants.VALIDATION_EMAIL_INVALID)
-        @Size(max = DbConstants.EMAIL_MAX_LENGTH)
+        @Size(max = DbConstants.EMAIL_MAX_LENGTH, message = MessageConstants.VALIDATION_EMAIL_TOO_LONG)
         String email
 ) {
 }

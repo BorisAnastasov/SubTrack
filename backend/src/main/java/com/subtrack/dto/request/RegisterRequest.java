@@ -13,6 +13,7 @@ public record RegisterRequest(
         String email,
 
         @NotBlank(message = MessageConstants.VALIDATION_PASSWORD_REQUIRED)
-        @Size(min = 6, max = 100, message = MessageConstants.VALIDATION_PASSWORD_LENGTH)
+        @Size(min = DbConstants.PASSWORD_MIN_LENGTH, max = DbConstants.PASSWORD_MAX_LENGTH,
+                message = MessageConstants.VALIDATION_PASSWORD_LENGTH)
         String password
 ) { }

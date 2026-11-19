@@ -24,7 +24,8 @@ public class AuthResponse {
     private boolean isPremium;
     private List<String> roles;
 
-    public AuthResponse(String accessToken, String refreshToken, Long id, String email, boolean isPremium, List<String> roles) {
+    public AuthResponse(String accessToken, String refreshToken, Long id,
+                        String email, boolean isPremium, List<String> roles) {
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
         this.tokenType = "Bearer";

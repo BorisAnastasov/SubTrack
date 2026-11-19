@@ -15,7 +15,7 @@ public enum RoleConstants {
     }
 
     public static final class Strings {
-        private Strings() {}
+        private Strings() { }
         public static final String ROLE_USER = "ROLE_USER";
         public static final String ROLE_ADMIN = "ROLE_ADMIN";
         public static final String ROLE_PREMIUM = "ROLE_PREMIUM";
