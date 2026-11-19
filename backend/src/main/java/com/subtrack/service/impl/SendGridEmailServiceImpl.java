@@ -1,6 +1,7 @@
 package com.subtrack.service.impl;
 
 import com.subtrack.service.EmailService;
+import com.subtrack.service.RenewalReminderEmailItem;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -9,6 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import jakarta.mail.internet.MimeMessage;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -64,6 +67,36 @@ public class SendGridEmailServiceImpl implements EmailService {
         sendHtmlEmail(toEmail, "Reset your SubTrack password", text, html);
     }
 
+    @Override
+    public void sendRenewalDigestEmail(String toEmail, List<RenewalReminderEmailItem> renewals) {
+        if (renewals.isEmpty()) {
+            return;
+        }
+        if (!StringUtils.hasText(fromAddress)) {
+            throw new IllegalStateException("MAIL_FROM must be set to a verified sender email address");
+        }
+        StringBuilder text = new StringBuilder("Hello,\n\nThese subscriptions are coming up for renewal:\n");
+        StringBuilder htmlItems = new StringBuilder("<ul>");
+        for (RenewalReminderEmailItem renewal : renewals) {
+            String safeName = renewal.subscriptionName().replaceAll("[\\r\\n]", " ").trim();
+            String amount = renewal.price().toPlainString() + " " + renewal.currency();
+            text.append("\n- ").append(safeName).append(" — ").append(amount)
+                    .append(" on ").append(renewal.billingDate());
+            htmlItems.append("<li><strong>").append(htmlEscape(safeName)).append("</strong> — ")
+                    .append(htmlEscape(amount)).append(" on ").append(renewal.billingDate()).append("</li>");
+        }
+        htmlItems.append("</ul>");
+        String html = emailTemplate(
+                "Upcoming subscription renewals",
+                renewals.size() == 1 ? "A payment is coming up" : "Your upcoming payments",
+                htmlItems.toString(),
+                "Open SubTrack",
+                frontendUrl.replaceAll("/+$", "") + "/account",
+                "You received this digest because these subscriptions are active in your SubTrack account."
+        );
+        sendHtmlEmail(toEmail, "Your upcoming subscription renewals", text.toString(), html);
+    }
+
     private void sendHtmlEmail(String toEmail, String subject, String text, String html) {
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
@@ -111,5 +144,13 @@ public class SendGridEmailServiceImpl implements EmailService {
                   </body>
                 </html>
                 """.formatted(title, heading, buttonUrl, buttonText, message, footer);
+    }
+
+    private String htmlEscape(String value) {
+        return value.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 }
